@@ -44,51 +44,79 @@ const draw = new ol.interaction.Draw({
     source: vector_source,
     type: 'Polygon'
 })
-map.addInteraction(draw)
+// Modify interaction
+const select = new ol.interaction.Select({
+    wrapX: false
+})
+const modify = new ol.interaction.Modify({
+    features: select.getFeatures()
+})
 // Toggle for capture fixed geom
-let drawing = false
-// Draw event
-draw.on('drawend', e => {
-    drawing = true
+let fixing = false
+const fixGeom = feature => {
     // Created feature
-    let feature = JSON.parse((new ol.format.GeoJSON()).writeFeature(e.feature, {
+    let created = JSON.parse((new ol.format.GeoJSON()).writeFeature(feature, {
         featureProjection : 'EPSG:3857'
     }))
     // Create range to clip
     let layer 
     for(let f of range.getFeatures()) {
-        let geojson = new ol.format.GeoJSON()
-        if(!layer) {
-            layer = JSON.parse(geojson.writeFeature(f, {
-                featureProjection : 'EPSG:3857'
-            }))
-        }
-        else {
-            layer = turf.union(layer, JSON.parse(geojson.writeFeature(f, {
-                featureProjection : 'EPSG:3857'
-            })))
-        }
+        let f_obj = JSON.parse((new ol.format.GeoJSON()).writeFeature(f, {
+            featureProjection : 'EPSG:3857'
+        }))
+        if(!layer) layer = f_obj
+        else layer = turf.union(layer, f_obj)
     }
+    let diff = (new ol.format.GeoJSON()).readFeature(turf.difference(created, layer), {
+        featureProjection: 'EPSG:3857'
+    })
     // Add clipped feature to displayed layer
-    vector_source.addFeature((new ol.format.GeoJSON()).readFeature(turf.difference(feature, layer), {
-        featureProjection: 'EPSG:3857'
-    }))
+    vector_source.addFeature(diff)
     // Add clipped feature to range
-    range.addFeature((new ol.format.GeoJSON()).readFeature(turf.difference(feature, layer), {
-        featureProjection: 'EPSG:3857'
-    }))
-    drawing = false
+    range.addFeature(diff)
+    fixing = false
+}
+// Draw events
+draw.on('drawstart', e => fixing = true)
+draw.on('drawend', e => {
+    fixGeom(e.feature)
+})
+// Modify events
+let edited_feature
+select.on('select', e => {
+    if(e.selected.length) edited_feature = e.selected[0]
+    else {
+        //TODO: Topology control
+    }
 })
 // Remove hand-writed feature
 vector_source.on('addfeature', e => {
-    if(!drawing) {
+    if(!fixing) {
         vector_source.removeFeature(e.feature)
     }
 })
 // Snapping
 const snap = new ol.interaction.Snap({
     source: vector.getSource()
-});
-map.addInteraction(snap)
+})
+// Menu interaction
+const addInteraction = mode => {
+    if(mode == 'draw') {
+        map.addInteraction(draw)
+        map.addInteraction(snap)
+        map.removeInteraction(select)
+        map.removeInteraction(modify)
+    } else if(mode == 'edit') {
+        map.addInteraction(select)
+        map.addInteraction(modify)
+        map.addInteraction(snap)
+        map.removeInteraction(draw)
+    }
+}
+// Link functions to radio
+for(let radio of document.getElementsByName('mode')) {
+    radio.onclick = () => addInteraction(radio.value)
+    if(radio.checked) addInteraction(radio.value)
+}
 
 
