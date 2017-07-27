@@ -3,6 +3,25 @@ import {polygon as default_range} from './data'
 import css from './style.css'
 import ol from 'openlayers'
 import turf from 'turf'
+import meta from 'turf-meta'
+// Displayed layer style
+const polygonStyle = f => {
+    return new ol.style.Style({
+        fill: new ol.style.Fill({
+            color: 'rgba(255,255,255,0.4)'
+        }),
+        stroke: new ol.style.Stroke({
+            color: '#3399CC',
+            width: 1.25
+        }),
+        text: new ol.style.Text({
+            text: f.get('label'),
+            fill: new ol.style.Fill({
+                color: 'rgba(255,0,0,1)'
+            })
+        })
+    })
+}
 // View object
 const view = new ol.View({
     center: ol.proj.fromLonLat([16.9, 52.4]),
@@ -24,7 +43,8 @@ const range = new ol.source.Vector({
 })
 // Displayed layer
 const vector = new ol.layer.Vector({
-    source: vector_source
+    source: vector_source,
+    style: polygonStyle
 })
 // Layerstack
 const layers = [
@@ -67,7 +87,9 @@ const fixGeom = feature => {
         if(!layer) layer = f_obj
         else layer = turf.union(layer, f_obj)
     }
-    let diff = (new ol.format.GeoJSON()).readFeature(turf.difference(created, layer), {
+    let diff_json = turf.buffer(turf.difference(created, layer), 0)
+    diff_json.properties['label'] = `Obszar ${vector_source.getFeatures().length + 1}`
+    let diff = (new ol.format.GeoJSON()).readFeature(diff_json, {
         featureProjection: 'EPSG:3857'
     })
     // Add clipped feature to displayed layer
