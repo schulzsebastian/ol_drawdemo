@@ -1,144 +1,169 @@
 // Hardcoded data, css and modules
 import {polygon as default_range} from './data'
-import css from './style.css'
 import ol from 'openlayers'
 import turf from 'turf'
-import meta from 'turf-meta'
-// Displayed layer style
-const polygonStyle = f => {
-    return new ol.style.Style({
-        fill: new ol.style.Fill({
-            color: 'rgba(255,255,255,0.4)'
-        }),
-        stroke: new ol.style.Stroke({
-            color: '#3399CC',
-            width: 1.25
-        }),
-        text: new ol.style.Text({
-            text: f.get('label'),
-            fill: new ol.style.Fill({
-                color: 'rgba(255,0,0,1)'
+import Vue from 'vue'
+import './modal'
+import './style.css'
+
+const vm = new Vue({
+    el: '#app',
+    data: {
+        addModal: false,
+        addButton: true,
+        removeButton: false,
+        layers: [],
+        mapInteractions: [],
+        currentFeature: {},
+        edit: 'trim',
+    },
+    computed: {
+        layersSource: function() {
+            let features = this.layers.map(layer => layer.getSource().getFeatures()[0])
+            return new ol.source.Vector({
+                features: features
+            })
+        }
+    },
+    methods: {
+        polygonStyle: function(f){
+            return new ol.style.Style({
+                fill: new ol.style.Fill({
+                    color: 'rgba(255,255,255,0.4)'
+                }),
+                stroke: new ol.style.Stroke({
+                    color: '#3399CC',
+                    width: 1.25
+                }),
+                text: new ol.style.Text({
+                    text: f.get('name'),
+                    fill: new ol.style.Fill({
+                        color: 'rgba(255,0,0,1)'
+                    })
+                })
+            })
+        },
+        changeInteraction: function(interaction) {
+            for(let interaction of this.mapInteractions) this.map.removeInteraction(interaction)
+            this.mapInteractions = []
+            if(interaction == 'add') {
+                let draw = new ol.interaction.Draw({
+                    source: new ol.source.Vector(),
+                    type: 'Polygon'
+                })
+                draw.on('drawend', e => this.createNewGeometry(e.feature))
+                this.map.addInteraction(draw)
+                this.mapInteractions.push(draw)
+                let snap = new ol.interaction.Snap({
+                    source: this.layersSource
+                })
+                this.map.addInteraction(snap)
+                this.mapInteractions.push(snap)
+            } else if(interaction == 'select') {
+                let select = new ol.interaction.Select({
+                    layers: this.layers,
+                    toggleCondition: ol.events.condition.never
+                })
+                select.on('select', e => this.selectFeature(e.selected[0]))
+                this.map.addInteraction(select)
+                this.mapInteractions.push(select)
+            }
+        },
+        deleteFeature: function() {
+            this.mapInteractions[0].getFeatures().clear()
+            let id = this.currentFeature.id
+            let layer = this.layers.filter(lyr => lyr.get('id') === id)[0]
+            this.map.removeLayer(layer)
+            this.layers = this.layers.filter(lyr => lyr.get('id') !== id)
+            this.removeButton = false
+        },
+        selectFeature: function(selected) {
+            if(selected) {
+                this.currentFeature = {
+                    feature: selected,
+                    id: selected.get('id')
+                }
+                this.removeButton = true
+            } else {
+                this.currentFeature = {}
+                this.removeButton = false
+            }
+        },
+        startEditing: function() {
+            this.addButton = false
+            this.changeInteraction('add')
+        },
+        createNewGeometry: function(feature) {
+            this.currentFeature = {
+                feature: feature,
+                id: this.layers.length + 1,
+                layers: this.layers
+            }
+            this.addModal = true
+        },
+        savePolygon: function(data) {
+            this.addModal = false
+            let feature = data.feature
+            feature.setProperties({
+                'id': data.id,
+                'name': data.name
+            })
+            let source = new ol.source.Vector({
+                features: [feature]
+            })
+            let layer = new ol.layer.Vector({
+                source: source,
+                style: this.polygonStyle
+            })
+            layer.set('id', data.id)
+            this.addButton = true
+            this.currentFeature = {}
+            this.addLayer(layer)
+            this.changeInteraction('select')
+        },
+        addLayer: function(layer) {
+            let created_obj = JSON.parse((new ol.format.GeoJSON()).writeFeature(layer.getSource().getFeatures()[0], {
+                featureProjection : 'EPSG:3857'
+            }))
+            let range
+            for(let lyr of this.layers) {
+                let feature = lyr.getSource().getFeatures()[0]
+                let f_obj = JSON.parse((new ol.format.GeoJSON()).writeFeature(feature, {
+                    featureProjection : 'EPSG:3857'
+                }))
+                if(!range) range = f_obj
+                else range = turf.union(range, f_obj)
+            }
+            if(range && turf.intersect(created_obj, range)) {
+                let diff_obj = turf.difference(created_obj, range)
+                if(!diff_obj) {
+                    // Przypadek w którym stworzony poligon zawiera się w całości w istniejącym
+                    alert('Niepoprawna geometria')
+                    return
+                }
+                let diff_fixed = turf.buffer(diff_obj, 0)
+                let diff_geom = (new ol.format.GeoJSON()).readFeature(diff_fixed, {
+                    featureProjection: 'EPSG:3857'
+                }).getGeometry()
+                layer.getSource().getFeatures()[0].setGeometry(diff_geom)
+            }
+            this.map.addLayer(layer)
+            this.layers.push(layer)
+        }
+    },
+    mounted: function() {
+        this.map = new ol.Map({
+            target: 'map',
+            layers: [
+                new ol.layer.Tile({
+                    source: new ol.source.OSM()
+                })
+            ],
+            view: new ol.View({
+                center: ol.proj.fromLonLat([16.9, 52.4]),
+                zoom: 14
             })
         })
-    })
-}
-// View object
-const view = new ol.View({
-    center: ol.proj.fromLonLat([16.9, 52.4]),
-    zoom: 14
-})
-// Source of displayed layer
-const vector_source = new ol.source.Vector({
-    features: (new ol.format.GeoJSON()).readFeatures(default_range, {
-        featureProjection: 'EPSG:3857'
-    }),
-    wrapX: false
-})
-// Range updated with new features
-const range = new ol.source.Vector({
-    features: (new ol.format.GeoJSON()).readFeatures(default_range, {
-        featureProjection: 'EPSG:3857'
-    }),
-    wrapX: false
-})
-// Displayed layer
-const vector = new ol.layer.Vector({
-    source: vector_source,
-    style: polygonStyle
-})
-// Layerstack
-const layers = [
-    new ol.layer.Tile({
-        source: new ol.source.OSM()
-    }),
-    vector
-]
-// Map object
-const map = new ol.Map({
-    target: 'map',
-    layers: layers,
-    view: view
-})
-// Draw interaction
-const draw = new ol.interaction.Draw({
-    source: vector_source,
-    type: 'Polygon'
-})
-// Modify interaction
-const select = new ol.interaction.Select({
-    wrapX: false
-})
-const modify = new ol.interaction.Modify({
-    features: select.getFeatures()
-})
-// Toggle for capture fixed geom
-let fixing = false
-const fixGeom = feature => {
-    // Created feature
-    let created = JSON.parse((new ol.format.GeoJSON()).writeFeature(feature, {
-        featureProjection : 'EPSG:3857'
-    }))
-    // Create range to clip
-    let layer 
-    for(let f of range.getFeatures()) {
-        let f_obj = JSON.parse((new ol.format.GeoJSON()).writeFeature(f, {
-            featureProjection : 'EPSG:3857'
-        }))
-        if(!layer) layer = f_obj
-        else layer = turf.union(layer, f_obj)
-    }
-    let diff_json = turf.buffer(turf.difference(created, layer), 0)
-    diff_json.properties['label'] = `Obszar ${vector_source.getFeatures().length + 1}`
-    let diff = (new ol.format.GeoJSON()).readFeature(diff_json, {
-        featureProjection: 'EPSG:3857'
-    })
-    // Add clipped feature to displayed layer
-    vector_source.addFeature(diff)
-    // Add clipped feature to range
-    range.addFeature(diff)
-    fixing = false
-}
-// Draw events
-draw.on('drawstart', e => fixing = true)
-draw.on('drawend', e => {
-    fixGeom(e.feature)
-})
-// Modify events
-let edited_feature
-select.on('select', e => {
-    if(e.selected.length) edited_feature = e.selected[0]
-    else {
-        //TODO: Topology control
     }
 })
-// Remove hand-writed feature
-vector_source.on('addfeature', e => {
-    if(!fixing) {
-        vector_source.removeFeature(e.feature)
-    }
-})
-// Snapping
-const snap = new ol.interaction.Snap({
-    source: vector.getSource()
-})
-// Menu interaction
-const addInteraction = mode => {
-    if(mode == 'draw') {
-        map.addInteraction(draw)
-        map.addInteraction(snap)
-        map.removeInteraction(select)
-        map.removeInteraction(modify)
-    } else if(mode == 'edit') {
-        map.addInteraction(select)
-        map.addInteraction(modify)
-        map.addInteraction(snap)
-        map.removeInteraction(draw)
-    }
-}
-// Link functions to radio
-for(let radio of document.getElementsByName('mode')) {
-    radio.onclick = () => addInteraction(radio.value)
-    if(radio.checked) addInteraction(radio.value)
-}
-
-
+window.vm = vm

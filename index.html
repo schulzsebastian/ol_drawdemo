@@ -4,10 +4,35 @@
     <title>OL Draw</title>
   </head>
   <body style="margin:0">
-    <div id="map"></div>
-    <div id="menu">
-      <input type="radio" name="mode" value="draw" checked>draw</input>
-      <input type="radio" name="mode" value="edit">edit</input>
+    <div id="app">
+      <div class="col-md-9" style="padding-left:0">
+        <div id="map"></div>
+      </div>
+      <div class="col-md-3">
+        <br>
+        <div class="row">
+          <div class="col-md-12">
+            <div class="btn-group" role="group">
+              <button class="btn btn-default" :disabled="!addButton" @click="startEditing">Dodaj</button>
+              <button class="btn btn-default" :disabled="!removeButton" @click="deleteFeature">Usuń</button>
+            </div>
+          </div>
+        </div>
+        <br>
+        <p>Dodawanie</p>
+        1. Kliknij Dodaj <br>
+        2. Stwórz geometrię <br>
+        3. Uzupełnij atrybuty i kliknij OK <br>
+        5. Id musi być unikalne, nazwa służy do etykietowania <br>
+        6. Przy tworzeniu drugiego poligonu widać snapowanie<br>
+        7. W przypadku narysowania geometrii na istniejącej następuje docięcie<br>
+        8. W przypadku narysowania geometrii w całości na istniejącej pojawia się alert 'Niepoprawna geometria'<br>
+        9. W przypadku podania istniejącego ID alert o istniejącym<br><br>
+        <p>Usuwanie</p>
+        1. Wybierz poligon na mapie <br>
+        2. Kliknij Usuń
+      </div>
+      <modal id="add-modal" v-if="addModal" v-on:close-modal="savePolygon" :data="currentFeature"></modal>
     </div>
     <script type="text/javascript" src="./dist/bundle.min.js"></script>
   </body>
