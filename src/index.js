@@ -2,8 +2,9 @@
 import {polygon as default_range} from './data'
 import ol from 'openlayers'
 import turf from 'turf'
+import turf_circle from 'turf-circle'
 import Vue from 'vue'
-import './modal'
+import './modals'
 import './style.css'
 
 const vm = new Vue({
@@ -12,6 +13,8 @@ const vm = new Vue({
         addModal: false,
         addButton: true,
         removeButton: false,
+        donutModal: false,
+        donutButton: true,
         layers: [],
         mapInteractions: [],
         currentFeature: {},
@@ -51,7 +54,7 @@ const vm = new Vue({
                     source: new ol.source.Vector(),
                     type: 'Polygon'
                 })
-                draw.on('drawend', e => this.createNewGeometry(e.feature))
+                draw.on('drawend', e => this.openModal('add', e.feature))
                 this.map.addInteraction(draw)
                 this.mapInteractions.push(draw)
                 let snap = new ol.interaction.Snap({
@@ -67,6 +70,19 @@ const vm = new Vue({
                 select.on('select', e => this.selectFeature(e.selected[0]))
                 this.map.addInteraction(select)
                 this.mapInteractions.push(select)
+            } else if(interaction == 'donut') {
+                let donut = new ol.interaction.Draw({
+                    source: new ol.source.Vector(),
+                    type: 'Point'
+                })
+                donut.on('drawend', e => this.openModal('donut', e.feature))
+                this.map.addInteraction(donut)
+                this.mapInteractions.push(donut)
+                let snap = new ol.interaction.Snap({
+                    source: this.layersSource
+                })
+                this.map.addInteraction(snap)
+                this.mapInteractions.push(snap)
             }
         },
         deleteFeature: function() {
@@ -89,20 +105,58 @@ const vm = new Vue({
                 this.removeButton = false
             }
         },
-        startEditing: function() {
+        startDonut: function() {
+            this.donutButton = false
+            this.changeInteraction('donut')
+        },
+        startAdd: function() {
             this.addButton = false
             this.changeInteraction('add')
         },
-        createNewGeometry: function(feature) {
+        openModal: function(modal, feature) {
             this.currentFeature = {
                 feature: feature,
                 id: this.layers.length + 1,
                 layers: this.layers
             }
-            this.addModal = true
+            if(modal == 'add') this.addModal = true
+            if(modal == 'donut') this.donutModal = true
+        },
+        saveDonut: function(data) {
+            this.donutModal = false
+            this.donutButton = true
+            this.currentFeature = {}
+            this.changeInteraction('select')
+            if(data == null) return
+            let created_obj = JSON.parse((new ol.format.GeoJSON()).writeFeature(data.feature, {
+                featureProjection : 'EPSG:3857'
+            }))
+            let bigger = turf_circle(created_obj, data.to, 64, 'kilometres')
+            let smaller = turf_circle(created_obj, data.from, 64, 'kilometres')
+            let diff_obj = turf.difference(bigger, smaller)
+            let diff_fixed = turf.buffer(diff_obj, 0)
+            let diff_feature = (new ol.format.GeoJSON()).readFeature(diff_fixed, {
+                featureProjection: 'EPSG:3857'
+            })
+            diff_feature.setProperties({
+                'id': data.id,
+                'name': data.name
+            })
+            let source = new ol.source.Vector({
+                features: [diff_feature]
+            })
+            let layer = new ol.layer.Vector({
+                source: source,
+                style: this.polygonStyle
+            }) 
+            this.addLayer(layer)
         },
         savePolygon: function(data) {
             this.addModal = false
+            this.addButton = true
+            this.currentFeature = {}
+            this.changeInteraction('select')
+            if(data == null) return
             let feature = data.feature
             feature.setProperties({
                 'id': data.id,
@@ -116,10 +170,7 @@ const vm = new Vue({
                 style: this.polygonStyle
             })
             layer.set('id', data.id)
-            this.addButton = true
-            this.currentFeature = {}
             this.addLayer(layer)
-            this.changeInteraction('select')
         },
         addLayer: function(layer) {
             let created_obj = JSON.parse((new ol.format.GeoJSON()).writeFeature(layer.getSource().getFeatures()[0], {

@@ -13,8 +13,14 @@
         <div class="row">
           <div class="col-md-12">
             <div class="btn-group" role="group">
-              <button class="btn btn-default" :disabled="!addButton" @click="startEditing">Dodaj</button>
+              <button class="btn btn-default" :disabled="!addButton" @click="startAdd">Dodaj</button>
               <button class="btn btn-default" :disabled="!removeButton" @click="deleteFeature">Usuń</button>
+            </div>
+          </div>
+          <br>
+          <div class="col-md-12">
+            <div class="btn-group" role="group">
+              <button class="btn btn-default" :disabled="!donutButton" @click="startDonut">Dodaj donut</button>
             </div>
           </div>
         </div>
@@ -28,11 +34,17 @@
         7. W przypadku narysowania geometrii na istniejącej następuje docięcie<br>
         8. W przypadku narysowania geometrii w całości na istniejącej pojawia się alert 'Niepoprawna geometria'<br>
         9. W przypadku podania istniejącego ID alert o istniejącym<br><br>
+        <p>Dodawanie donuta</p>
+        1. Kliknij Dodaj donut <br>
+        2. Kliknij miejsce środka donuta <br>
+        3. Uzupełnij atrybuty i kliknij OK <br>
+        4. Wszystkie założenia są tak jak przy zwykłym dodawaniu <br><br>
         <p>Usuwanie</p>
         1. Wybierz poligon na mapie <br>
         2. Kliknij Usuń
       </div>
-      <modal id="add-modal" v-if="addModal" v-on:close-modal="savePolygon" :data="currentFeature"></modal>
+      <add-modal id="add-modal" v-if="addModal" v-on:close-modal="savePolygon" :data="currentFeature"></add-modal>
+      <donut-modal id="donut-modal" v-if="donutModal" v-on:close-modal="saveDonut" :data="currentFeature"></donut-modal>
     </div>
     <script type="text/javascript" src="./dist/bundle.min.js"></script>
   </body>
