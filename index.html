@@ -17,10 +17,17 @@
               <button class="btn btn-default" :disabled="!removeButton" @click="deleteFeature">Usuń</button>
             </div>
           </div>
-          <br>
+          <br><br>
           <div class="col-md-12">
             <div class="btn-group" role="group">
               <button class="btn btn-default" :disabled="!donutButton" @click="startDonut">Dodaj donut</button>
+            </div>
+          </div>
+          <br><br>
+          <div class="col-md-12">
+            <div class="btn-group" role="group">
+              <button class="btn btn-default" :disabled="!editButton" @click="startEdit">Edycja</button>
+              <button class="btn btn-default" :disabled="!saveButton" @click="saveModify">Zapisz</button>
             </div>
           </div>
         </div>
@@ -41,7 +48,13 @@
         4. Wszystkie założenia są tak jak przy zwykłym dodawaniu <br><br>
         <p>Usuwanie</p>
         1. Wybierz poligon na mapie <br>
-        2. Kliknij Usuń
+        2. Kliknij Usuń <br><br>
+        <p>Edycja</p>
+        1. Wybierz poligon na mapie <br>
+        2. Kliknij Edycja <br>
+        3. Edytuj geometrię <br>
+        4. Kliknij zapisz <br>
+        5. Wszystkie założenia są tak jak przy zwykłym dodawaniu <br><br>
       </div>
       <add-modal id="add-modal" v-if="addModal" v-on:close-modal="savePolygon" :data="currentFeature"></add-modal>
       <donut-modal id="donut-modal" v-if="donutModal" v-on:close-modal="saveDonut" :data="currentFeature"></donut-modal>

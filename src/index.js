@@ -11,10 +11,12 @@ const vm = new Vue({
     el: '#app',
     data: {
         addModal: false,
-        addButton: true,
-        removeButton: false,
         donutModal: false,
+        addButton: true,
+        removeButton: true,
+        editButton: true,
         donutButton: true,
+        saveButton: true,
         layers: [],
         mapInteractions: [],
         currentFeature: {},
@@ -46,43 +48,121 @@ const vm = new Vue({
                 })
             })
         },
+        modifyStyle: function(f) {
+            let fill = new ol.style.Fill({
+                color: 'rgba(255,255,255,0.4)'
+            })
+            let stroke = new ol.style.Stroke({
+                color: '#ff4d4d',
+                width: 1.25
+            })
+            return new ol.style.Style({
+                fill: fill,
+                stroke: stroke,
+                image: new ol.style.Circle({
+                    fill: fill,
+                    stroke: stroke,
+                    radius: 5
+                })
+            })
+        },
+        changeButtonState: function(interaction) {
+            switch(interaction) {
+                case 'select':
+                    this.addButton = true
+                    this.donutButton = true
+                    this.removeButton = false
+                    this.editButton = false
+                    this.saveButton = false
+                    break
+                case 'selected':
+                    this.removeButton = true
+                    this.editButton = true
+                    this.saveButton = false
+                    this.addButton = false
+                    this.donutButton = false
+                    break
+                case 'add':
+                case 'donut':
+                    this.addButton = false
+                    this.donutButton = false
+                    this.saveButton = false
+                    this.removeButton = false
+                    this.editButton = false
+                    break
+                case 'edit':
+                    this.saveButton = true
+                    this.addButton = false
+                    this.donutButton = false
+                    this.removeButton = false
+                    this.editButton = false
+                    break
+            }
+        },
         changeInteraction: function(interaction) {
             for(let interaction of this.mapInteractions) this.map.removeInteraction(interaction)
             this.mapInteractions = []
-            if(interaction == 'add') {
-                let draw = new ol.interaction.Draw({
+            this.changeButtonState(interaction)
+            switch(interaction) {
+                case 'add':
+                    let draw = new ol.interaction.Draw({
                     source: new ol.source.Vector(),
                     type: 'Polygon'
-                })
-                draw.on('drawend', e => this.openModal('add', e.feature))
-                this.map.addInteraction(draw)
-                this.mapInteractions.push(draw)
-                let snap = new ol.interaction.Snap({
-                    source: this.layersSource
-                })
-                this.map.addInteraction(snap)
-                this.mapInteractions.push(snap)
-            } else if(interaction == 'select') {
-                let select = new ol.interaction.Select({
-                    layers: this.layers,
-                    toggleCondition: ol.events.condition.never
-                })
-                select.on('select', e => this.selectFeature(e.selected[0]))
-                this.map.addInteraction(select)
-                this.mapInteractions.push(select)
-            } else if(interaction == 'donut') {
-                let donut = new ol.interaction.Draw({
-                    source: new ol.source.Vector(),
-                    type: 'Point'
-                })
-                donut.on('drawend', e => this.openModal('donut', e.feature))
-                this.map.addInteraction(donut)
-                this.mapInteractions.push(donut)
-                let snap = new ol.interaction.Snap({
-                    source: this.layersSource
-                })
-                this.map.addInteraction(snap)
-                this.mapInteractions.push(snap)
+                    })
+                    draw.on('drawend', e => this.openModal('add', e.feature))
+                    this.map.addInteraction(draw)
+                    this.mapInteractions.push(draw)
+                    let snap_add = new ol.interaction.Snap({
+                        source: this.layersSource
+                    })
+                    this.map.addInteraction(snap_add)
+                    this.mapInteractions.push(snap_add)
+                    break
+                case 'select':
+                    let select = new ol.interaction.Select({
+                        layers: this.layers,
+                        toggleCondition: ol.events.condition.never
+                    })
+                    select.on('select', e => this.selectFeature(e.selected[0]))
+                    this.map.addInteraction(select)
+                    this.mapInteractions.push(select)
+                    break
+                case 'donut':
+                    let donut = new ol.interaction.Draw({
+                        source: new ol.source.Vector(),
+                        type: 'Point'
+                    })
+                    donut.on('drawend', e => this.openModal('donut', e.feature))
+                    this.map.addInteraction(donut)
+                    this.mapInteractions.push(donut)
+                    let snap_donut = new ol.interaction.Snap({
+                        source: this.layersSource
+                    })
+                    this.map.addInteraction(snap_donut)
+                    this.mapInteractions.push(snap_donut)
+                    break
+                case 'edit':
+                    let layer = this.layers.filter(lyr => lyr.get('id') == this.currentFeature.id)[0]
+                    let select_edit = new ol.interaction.Select({
+                        layers: [layer],
+                        toggleCondition: ol.events.condition.never
+                    })
+                    select_edit.getFeatures().push(this.currentFeature.feature)
+                    let modify = new ol.interaction.Modify({
+                        features: select_edit.getFeatures(),
+                        style: this.modifyStyle
+                    })
+                    console.log(this.layers)
+                    console.log(this.currentFeature)
+                    layer.setStyle(this.modifyStyle())
+                    this.map.addInteraction(modify)
+                    this.mapInteractions.push(modify)
+                    let snap_edit = new ol.interaction.Snap({
+                        source: this.layersSource
+                    })
+                    this.map.addInteraction(snap_edit)
+                    this.mapInteractions.push(snap_edit)
+                    break
             }
         },
         deleteFeature: function() {
@@ -91,7 +171,23 @@ const vm = new Vue({
             let layer = this.layers.filter(lyr => lyr.get('id') === id)[0]
             this.map.removeLayer(layer)
             this.layers = this.layers.filter(lyr => lyr.get('id') !== id)
-            this.removeButton = false
+            this.changeInteraction('select')
+        },
+        saveModify: function() {
+            let remove_layer = this.layers.filter(lyr => lyr.get('id') === this.currentFeature.id)[0]
+            this.map.removeLayer(remove_layer)
+            this.layers = this.layers.filter(lyr => lyr.get('id') !== this.currentFeature.id)
+            let source = new ol.source.Vector({
+                features: [this.currentFeature.feature]
+            })
+            let layer = new ol.layer.Vector({
+                source: source,
+                style: this.polygonStyle
+            })
+            layer.set('id', this.currentFeature.id)
+            this.currentFeature = {}
+            this.addLayer(layer)
+            this.changeInteraction('select')
         },
         selectFeature: function(selected) {
             if(selected) {
@@ -99,18 +195,19 @@ const vm = new Vue({
                     feature: selected,
                     id: selected.get('id')
                 }
-                this.removeButton = true
+                this.changeButtonState('selected')
             } else {
                 this.currentFeature = {}
-                this.removeButton = false
+                this.changeButtonState('select')     
             }
         },
+        startEdit: function() {
+            this.changeInteraction('edit')
+        },
         startDonut: function() {
-            this.donutButton = false
             this.changeInteraction('donut')
         },
         startAdd: function() {
-            this.addButton = false
             this.changeInteraction('add')
         },
         openModal: function(modal, feature) {
@@ -123,8 +220,6 @@ const vm = new Vue({
             if(modal == 'donut') this.donutModal = true
         },
         saveDonut: function(data) {
-            this.donutModal = false
-            this.donutButton = true
             this.currentFeature = {}
             this.changeInteraction('select')
             if(data == null) return
@@ -149,11 +244,11 @@ const vm = new Vue({
                 source: source,
                 style: this.polygonStyle
             }) 
+            layer.set('id', data.id)
             this.addLayer(layer)
         },
         savePolygon: function(data) {
             this.addModal = false
-            this.addButton = true
             this.currentFeature = {}
             this.changeInteraction('select')
             if(data == null) return
@@ -215,6 +310,7 @@ const vm = new Vue({
                 zoom: 14
             })
         })
+        this.changeInteraction('select')
     }
 })
 window.vm = vm
