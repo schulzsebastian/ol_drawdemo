@@ -21,7 +21,9 @@ const vm = new Vue({
         layers: [],
         mapInteractions: [],
         currentFeature: {},
-        edit: 'trim',
+        editMode: 'trim',
+        editTool: 'vertex',
+        edit: false
     },
     computed: {
         layersSource: function() {
@@ -29,6 +31,23 @@ const vm = new Vue({
             return new ol.source.Vector({
                 features: features
             })
+        },
+        rangeObj: function() {
+            let range
+            for(let lyr of this.layers) {
+                let feature = lyr.getSource().getFeatures()[0]
+                let f_obj = JSON.parse((new ol.format.GeoJSON()).writeFeature(feature, {
+                    featureProjection : 'EPSG:3857'
+                }))
+                if(!range) range = f_obj
+                else range = turf.union(range, f_obj)
+            }
+            return range
+        }
+    },
+    watch: {
+        editTool: function() {
+            this.changeInteraction('edit')
         }
     },
     methods: {
@@ -76,6 +95,7 @@ const vm = new Vue({
                     this.editButton = false
                     this.saveButton = false
                     this.cancelButton = false
+                    this.edit = false
                     break
                 case 'selected':
                     this.removeButton = true
@@ -84,6 +104,7 @@ const vm = new Vue({
                     this.addButton = false
                     this.donutButton = false
                     this.cancelButton = false
+                    this.edit = false
                     break
                 case 'add':
                 case 'donut':
@@ -93,10 +114,12 @@ const vm = new Vue({
                     this.removeButton = false
                     this.editButton = false
                     this.cancelButton = false
+                    this.edit = false
                     break
                 case 'edit':
                     this.saveButton = true
                     this.cancelButton = true
+                    this.edit = true
                     this.addButton = false
                     this.donutButton = false
                     this.removeButton = false
@@ -111,8 +134,8 @@ const vm = new Vue({
             switch(interaction) {
                 case 'add':
                     let draw = new ol.interaction.Draw({
-                    source: new ol.source.Vector(),
-                    type: 'Polygon'
+                        source: new ol.source.Vector(),
+                        type: 'Polygon'
                     })
                     draw.on('drawend', e => this.openModal('add', e.feature))
                     this.map.addInteraction(draw)
@@ -147,24 +170,42 @@ const vm = new Vue({
                     this.mapInteractions.push(snap_donut)
                     break
                 case 'edit':
-                    let layer = this.layers.filter(lyr => lyr.get('id') == this.currentFeature.id)[0]
-                    let select_edit = new ol.interaction.Select({
-                        layers: [layer],
-                        toggleCondition: ol.events.condition.never
-                    })
-                    select_edit.getFeatures().push(this.currentFeature.feature)
-                    let modify = new ol.interaction.Modify({
-                        features: select_edit.getFeatures(),
-                        style: this.modifyStyle
-                    })
-                    layer.setStyle(this.modifyStyle())
-                    this.map.addInteraction(modify)
-                    this.mapInteractions.push(modify)
-                    let snap_edit = new ol.interaction.Snap({
-                        source: this.layersSource
-                    })
-                    this.map.addInteraction(snap_edit)
-                    this.mapInteractions.push(snap_edit)
+                    if(this.editTool == 'vertex') {
+                        let layer = this.layers.filter(lyr => lyr.get('id') == this.currentFeature.id)[0]
+                        let select_edit = new ol.interaction.Select({
+                            layers: [layer],
+                            toggleCondition: ol.events.condition.never
+                        })
+                        select_edit.getFeatures().push(this.currentFeature.feature)
+                        let modify = new ol.interaction.Modify({
+                            features: select_edit.getFeatures(),
+                            style: this.modifyStyle
+                        })
+                        layer.setStyle(this.modifyStyle())
+                        this.map.addInteraction(modify)
+                        this.mapInteractions.push(modify)
+                        let snap_edit = new ol.interaction.Snap({
+                            source: this.layersSource
+                        })
+                        this.map.addInteraction(snap_edit)
+                        this.mapInteractions.push(snap_edit)
+                    } else if(this.editTool == 'area') {
+                        let layer = this.layers.filter(lyr => lyr.get('id') == this.currentFeature.id)[0]
+                        layer.setStyle(this.modifyStyle())
+                        let draw_edit = new ol.interaction.Draw({
+                            source: new ol.source.Vector(),
+                            type: 'Polygon'
+                        })
+                        draw_edit.on('drawend', e => this.editPolygon(e.feature))
+                        this.map.addInteraction(draw_edit)
+                        this.mapInteractions.push(draw_edit)
+                        let snap_edit = new ol.interaction.Snap({
+                            source: this.layersSource
+                        })
+                        this.map.addInteraction(snap_edit)
+                        this.mapInteractions.push(snap_edit)
+                        break
+                    }
                     break
             }
         },
@@ -215,6 +256,18 @@ const vm = new Vue({
                 this.currentFeature = {}
                 this.changeButtonState('select')     
             }
+        },
+        editPolygon: function(feature) {
+            let created_obj = JSON.parse((new ol.format.GeoJSON()).writeFeature(feature, {
+                featureProjection : 'EPSG:3857'
+            }))
+            let base = JSON.parse((new ol.format.GeoJSON()).writeFeature(this.currentFeature.feature, {
+                featureProjection : 'EPSG:3857'
+            }))
+            let union = (new ol.format.GeoJSON()).readFeature(turf.union(base, created_obj), {
+                featureProjection: 'EPSG:3857'
+            })
+            this.currentFeature.feature.setGeometry(union.getGeometry())
         },
         openModal: function(modal, feature) {
             this.currentFeature = {
@@ -277,17 +330,8 @@ const vm = new Vue({
             let created_obj = JSON.parse((new ol.format.GeoJSON()).writeFeature(layer.getSource().getFeatures()[0], {
                 featureProjection : 'EPSG:3857'
             }))
-            let range
-            for(let lyr of this.layers) {
-                let feature = lyr.getSource().getFeatures()[0]
-                let f_obj = JSON.parse((new ol.format.GeoJSON()).writeFeature(feature, {
-                    featureProjection : 'EPSG:3857'
-                }))
-                if(!range) range = f_obj
-                else range = turf.union(range, f_obj)
-            }
-            if(range && turf.intersect(created_obj, range)) {
-                let diff_obj = turf.difference(created_obj, range)
+            if(this.rangeObj && turf.intersect(created_obj, this.rangeObj)) {
+                let diff_obj = turf.difference(created_obj, this.rangeObj)
                 if(!diff_obj) {
                     // Przypadek w którym stworzony poligon zawiera się w całości w istniejącym
                     alert('Niepoprawna geometria')

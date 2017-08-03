@@ -3,12 +3,12 @@
     <meta charset="utf-8">
     <title>OL Draw</title>
   </head>
-  <body style="margin:0">
+  <body style="margin:0;height:100vh">
     <div id="app">
       <div class="col-md-9" style="padding-left:0">
         <div id="map"></div>
       </div>
-      <div class="col-md-3">
+      <div class="col-md-3" style="overflow:auto;height:100%">
         <br>
         <div class="row">
           <div class="col-md-12">
@@ -29,6 +29,16 @@
               <button class="btn btn-default" :disabled="!editButton" @click="changeInteraction('edit')">Edycja</button>
               <button class="btn btn-default" :disabled="!saveButton" @click="saveModify">Zapisz</button>
               <button class="btn btn-default" :disabled="!cancelButton" @click="cancelModify">Anuluj</button>
+            </div>
+          </div>
+          <br><br>
+          <div class="col-md-12">
+            <div class="btn-group" role="group">
+              <input type="radio" id="vertex" value="vertex" v-model="editTool" :disabled="!edit">
+              <label for="vertex">Vertex</label>
+              <br>
+              <input type="radio" id="area" value="area" v-model="editTool" :disabled="!edit">
+              <label for="area">Area</label>
             </div>
           </div>
         </div>
@@ -53,6 +63,7 @@
         <p>Edycja</p>
         1. Wybierz poligon na mapie <br>
         2. Kliknij Edycja <br>
+        3. Wybierz tryb edycji (area do dodawania obszaru rysowaniem, vertex do edycji węzłów) <br>
         3. Edytuj geometrię <br>
         4. Kliknij zapisz <br>
         5. Wszystkie założenia są tak jak przy zwykłym dodawaniu <br><br>
