@@ -1,3 +1,5 @@
+var webpack = require('webpack')
+
 module.exports = {
   entry: {
     'bundle': './src/index.js',
@@ -33,5 +35,8 @@ module.exports = {
       vue: 'vue/dist/vue.js',
       jquery: 'jquery/src/jquery'
     }
-  }
+  },
+  plugins: [
+    //new webpack.optimize.UglifyJsPlugin({include: /\.min\.js$/, minimize: true})
+  ]
 }

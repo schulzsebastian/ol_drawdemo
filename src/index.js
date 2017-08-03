@@ -337,21 +337,44 @@ const vm = new Vue({
             let created_obj = JSON.parse((new ol.format.GeoJSON()).writeFeature(layer.getSource().getFeatures()[0], {
                 featureProjection : 'EPSG:3857'
             }))
-            if(this.rangeObj && turf.intersect(created_obj, this.rangeObj)) {
-                let diff_obj = turf.difference(created_obj, this.rangeObj)
-                if(!diff_obj) {
-                    // Przypadek w którym stworzony poligon zawiera się w całości w istniejącym
-                    alert('Niepoprawna geometria')
-                    return
+            if(this.editMode == 'trim') {
+                if(this.rangeObj && turf.intersect(created_obj, this.rangeObj)) {
+                    let diff_obj = turf.difference(created_obj, this.rangeObj)
+                    if(!diff_obj) {
+                        // Przypadek w którym stworzony poligon zawiera się w całości w istniejącym
+                        alert('Niepoprawna geometria')
+                        return
+                    }
+                    let diff_fixed = turf.buffer(diff_obj, 0)
+                    let diff_geom = (new ol.format.GeoJSON()).readFeature(diff_fixed, {
+                        featureProjection: 'EPSG:3857'
+                    }).getGeometry()
+                    layer.getSource().getFeatures()[0].setGeometry(diff_geom)
                 }
-                let diff_fixed = turf.buffer(diff_obj, 0)
-                let diff_geom = (new ol.format.GeoJSON()).readFeature(diff_fixed, {
-                    featureProjection: 'EPSG:3857'
-                }).getGeometry()
-                layer.getSource().getFeatures()[0].setGeometry(diff_geom)
+                this.map.addLayer(layer)
+                this.layers.push(layer)
+            } else if(this.editMode == 'cut') {
+                for(let lyr of this.layers) {
+                    let lyr_obj = JSON.parse((new ol.format.GeoJSON()).writeFeature(lyr.getSource().getFeatures()[0], {
+                        featureProjection : 'EPSG:3857'
+                    }))
+                    if(this.rangeObj && turf.intersect(created_obj, lyr_obj)) {
+                        let diff_obj = turf.difference(lyr_obj, created_obj)
+                        if(!diff_obj) {
+                            // Przypadek w którym stworzony poligon zawiera się w całości w istniejącym
+                            alert('Niepoprawna geometria')
+                            return
+                        }
+                        let diff_fixed = turf.buffer(diff_obj, 0)
+                        let diff_geom = (new ol.format.GeoJSON()).readFeature(diff_fixed, {
+                            featureProjection: 'EPSG:3857'
+                        }).getGeometry()
+                        lyr.getSource().getFeatures()[0].setGeometry(diff_geom)
+                    }
+                }
+                this.map.addLayer(layer)
+                this.layers.push(layer)
             }
-            this.map.addLayer(layer)
-            this.layers.push(layer)
         }
     },
     mounted: function() {
