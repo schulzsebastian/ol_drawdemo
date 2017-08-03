@@ -264,7 +264,14 @@ const vm = new Vue({
             let base = JSON.parse((new ol.format.GeoJSON()).writeFeature(this.currentFeature.feature, {
                 featureProjection : 'EPSG:3857'
             }))
-            let union = (new ol.format.GeoJSON()).readFeature(turf.union(base, created_obj), {
+            let diff
+            if(this.rangeObj) {
+                let range = turf.difference(this.rangeObj, base)
+                diff = turf.buffer(turf.difference(turf.union(base, created_obj), range), 0)
+            }else {
+                diff = turf.union(base, created_obj)
+            }
+            let union = (new ol.format.GeoJSON()).readFeature(diff, {
                 featureProjection: 'EPSG:3857'
             })
             this.currentFeature.feature.setGeometry(union.getGeometry())
