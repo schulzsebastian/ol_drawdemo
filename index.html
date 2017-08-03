@@ -13,21 +13,22 @@
         <div class="row">
           <div class="col-md-12">
             <div class="btn-group" role="group">
-              <button class="btn btn-default" :disabled="!addButton" @click="startAdd">Dodaj</button>
+              <button class="btn btn-default" :disabled="!addButton" @click="changeInteraction('add')">Dodaj</button>
               <button class="btn btn-default" :disabled="!removeButton" @click="deleteFeature">Usuń</button>
             </div>
           </div>
           <br><br>
           <div class="col-md-12">
             <div class="btn-group" role="group">
-              <button class="btn btn-default" :disabled="!donutButton" @click="startDonut">Dodaj donut</button>
+              <button class="btn btn-default" :disabled="!donutButton" @click="changeInteraction('donut')">Dodaj donut</button>
             </div>
           </div>
           <br><br>
           <div class="col-md-12">
             <div class="btn-group" role="group">
-              <button class="btn btn-default" :disabled="!editButton" @click="startEdit">Edycja</button>
+              <button class="btn btn-default" :disabled="!editButton" @click="changeInteraction('edit')">Edycja</button>
               <button class="btn btn-default" :disabled="!saveButton" @click="saveModify">Zapisz</button>
+              <button class="btn btn-default" :disabled="!cancelButton" @click="cancelModify">Anuluj</button>
             </div>
           </div>
         </div>

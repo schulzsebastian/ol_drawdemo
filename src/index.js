@@ -17,6 +17,7 @@ const vm = new Vue({
         editButton: true,
         donutButton: true,
         saveButton: true,
+        cancelButton: true,
         layers: [],
         mapInteractions: [],
         currentFeature: {},
@@ -74,6 +75,7 @@ const vm = new Vue({
                     this.removeButton = false
                     this.editButton = false
                     this.saveButton = false
+                    this.cancelButton = false
                     break
                 case 'selected':
                     this.removeButton = true
@@ -81,6 +83,7 @@ const vm = new Vue({
                     this.saveButton = false
                     this.addButton = false
                     this.donutButton = false
+                    this.cancelButton = false
                     break
                 case 'add':
                 case 'donut':
@@ -89,9 +92,11 @@ const vm = new Vue({
                     this.saveButton = false
                     this.removeButton = false
                     this.editButton = false
+                    this.cancelButton = false
                     break
                 case 'edit':
                     this.saveButton = true
+                    this.cancelButton = true
                     this.addButton = false
                     this.donutButton = false
                     this.removeButton = false
@@ -152,8 +157,6 @@ const vm = new Vue({
                         features: select_edit.getFeatures(),
                         style: this.modifyStyle
                     })
-                    console.log(this.layers)
-                    console.log(this.currentFeature)
                     layer.setStyle(this.modifyStyle())
                     this.map.addInteraction(modify)
                     this.mapInteractions.push(modify)
@@ -165,18 +168,27 @@ const vm = new Vue({
                     break
             }
         },
+        removeLayer: function(id) {
+            this.map.removeLayer(this.layers.filter(lyr => lyr.get('id') === id)[0])
+            this.layers = this.layers.filter(lyr => lyr.get('id') !== id)
+        },
         deleteFeature: function() {
             this.mapInteractions[0].getFeatures().clear()
-            let id = this.currentFeature.id
-            let layer = this.layers.filter(lyr => lyr.get('id') === id)[0]
-            this.map.removeLayer(layer)
-            this.layers = this.layers.filter(lyr => lyr.get('id') !== id)
+            this.removeLayer(this.currentFeature.id)
+            this.changeInteraction('select')
+        },
+        cancelModify: function() {
+            let layer = this.layers.filter(lyr => lyr.get('id') === this.currentFeature.id)[0]
+            let geom = (new ol.format.GeoJSON()).readFeature(this.currentFeature.geom, {
+                featureProjection: 'EPSG:3857'
+            }).getGeometry()
+            layer.getSource().getFeatures()[0].setGeometry(geom)
+            layer.setStyle(this.polygonStyle(layer.getSource().getFeatures()[0]))
+            this.currentFeature = {}
             this.changeInteraction('select')
         },
         saveModify: function() {
-            let remove_layer = this.layers.filter(lyr => lyr.get('id') === this.currentFeature.id)[0]
-            this.map.removeLayer(remove_layer)
-            this.layers = this.layers.filter(lyr => lyr.get('id') !== this.currentFeature.id)
+            this.removeLayer(this.currentFeature.id)
             let source = new ol.source.Vector({
                 features: [this.currentFeature.feature]
             })
@@ -193,22 +205,16 @@ const vm = new Vue({
             if(selected) {
                 this.currentFeature = {
                     feature: selected,
-                    id: selected.get('id')
+                    id: selected.get('id'),
+                    geom: JSON.parse((new ol.format.GeoJSON()).writeFeature(selected, {
+                        featureProjection : 'EPSG:3857'
+                    }))
                 }
                 this.changeButtonState('selected')
             } else {
                 this.currentFeature = {}
                 this.changeButtonState('select')     
             }
-        },
-        startEdit: function() {
-            this.changeInteraction('edit')
-        },
-        startDonut: function() {
-            this.changeInteraction('donut')
-        },
-        startAdd: function() {
-            this.changeInteraction('add')
         },
         openModal: function(modal, feature) {
             this.currentFeature = {
