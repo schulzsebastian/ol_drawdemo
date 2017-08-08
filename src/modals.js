@@ -8,7 +8,7 @@ Vue.component('add-modal', {
     data : function() {
         return {
             id_feature: '',
-            name: '',
+            externalId: '',
             layers: []
         }
     },
@@ -30,7 +30,7 @@ Vue.component('add-modal', {
             <div class="form-group">
             <label for="example-search-input" class="col-2 col-form-label">Nazwa</label>
             <div class="col-10">
-                <input class="form-control" type="text" id="example-search-input" v-model="name">
+                <input class="form-control" type="text" id="example-search-input" v-model="externalId">
             </div>
             </div>
         </div>
@@ -51,7 +51,7 @@ Vue.component('add-modal', {
                 let feature = {
                     feature: this.data.feature,
                     id: this.id_feature,
-                    name: this.name
+                    externalId: this.externalId
                 }
                 this.$emit('close-modal', feature)
             } else {
@@ -69,7 +69,7 @@ Vue.component('add-modal', {
     },
     mounted: function(){
         this.id_feature = this.data.id
-        this.name = `Obszar ${this.data.id}`
+        this.externalId = `effe7${this.data.id}`
         this.layers = this.data.layers
         $('#'+this.id).modal('show')
         $('#'+this.id).attr('class', 'modal')
@@ -84,7 +84,7 @@ Vue.component('donut-modal', {
             layers: [],
             from: 2,
             to: 3,
-            name: ''
+            externalId: ''
         }
     },
     template: `
@@ -105,7 +105,7 @@ Vue.component('donut-modal', {
         <div class="form-group">
             <label for="example-text-input" class="col-2 col-form-label">Nazwa</label>
             <div class="col-10">
-                <input class="form-control" type="text" id="example-text-input" v-model="name">
+                <input class="form-control" type="text" id="example-text-input" v-model="externalId">
             </div>
         </div>
         <div class="form-group">
@@ -140,7 +140,7 @@ Vue.component('donut-modal', {
                     from: this.from,
                     to: this.to,
                     id: this.id_feature,
-                    name: this.name
+                    externalId: this.externalId
                 }
                 this.$emit('close-modal', feature)
             } else {
@@ -158,7 +158,7 @@ Vue.component('donut-modal', {
     },
     mounted: function(){
         this.id_feature = this.data.id
-        this.name = `Obszar ${this.data.id}`
+        this.externalId = `efef7${this.data.id}`
         this.layers = this.data.layers
         $('#'+this.id).modal('show')
         $('#'+this.id).attr('class', 'modal')

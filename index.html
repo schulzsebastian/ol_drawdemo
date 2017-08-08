@@ -11,59 +11,69 @@
       <div class="col-md-3" style="overflow:auto;height:100%">
         <br>
         <div class="row">
-          <div class="col-md-6">
-            <div class="btn-group" role="group">
-              <button class="btn btn-default" :disabled="!addButton" @click="changeInteraction('add')">Dodaj</button>
-              <button class="btn btn-default" :disabled="!removeButton" @click="deleteFeature">Usuń</button>
-              <button class="btn btn-default" :disabled="!donutButton" @click="changeInteraction('donut')">Dodaj donut</button>
-              <button class="btn btn-default" :disabled="!editButton" @click="changeInteraction('edit')">Edycja</button>
-              <button class="btn btn-default" :disabled="!saveButton" @click="saveModify">Zapisz</button>
-              <button class="btn btn-default" :disabled="!cancelButton" @click="cancelModify">Anuluj</button>
-            </div>
-          </div>
-           <div class="col-md-6">
-              <input type="radio" id="trim" value="trim" v-model="editMode">
-              <label for="trim">Trim</label>
-              <br>
-              <input type="radio" id="cut" value="cut" v-model="editMode">
-              <label for="cut">Cut</label>
-            </div>
-          <br><br>
           <div class="col-md-12">
             <div class="btn-group" role="group">
-              <input type="radio" id="vertex" value="vertex" v-model="editTool" :disabled="!edit">
-              <label for="vertex">Vertex</label>
-              <br>
-              <input type="radio" id="area" value="area" v-model="editTool" :disabled="!edit">
-              <label for="area">Area</label>
+              <button class="btn btn-default" :disabled="!addButton" @click="changeInteraction(addMode)"><i class="ci ci-add"></i></button>
+              <button class="btn btn-default" :disabled="!removeButton" @click="deleteFeature"><i class="ci ci-delete"></i></button>
+              <button class="btn btn-default" :disabled="!editButton" @click="changeInteraction('edit')"><i class="ci ci-edit"></i></button>
+              <button class="btn btn-default" :disabled="!saveButton" @click="saveModify" style="height:44px">Zapisz</button>
+              <button class="btn btn-default" :disabled="!cancelButton" @click="cancelModify" style="height:44px">Anuluj</button>
             </div>
           </div>
         </div>
         <br>
-        <p>Dodawanie</p>
-        1. Kliknij Dodaj <br>
-        2. Stwórz geometrię <br>
-        3. Uzupełnij atrybuty i kliknij OK <br>
-        5. Id musi być unikalne, nazwa służy do etykietowania <br>
-        6. Przy tworzeniu drugiego poligonu widać snapowanie<br>
-        7. W przypadku narysowania geometrii na istniejącej następuje docięcie<br>
-        8. W przypadku narysowania geometrii w całości na istniejącej pojawia się alert 'Niepoprawna geometria'<br>
-        9. W przypadku podania istniejącego ID alert o istniejącym<br><br>
-        <p>Dodawanie donuta</p>
-        1. Kliknij Dodaj donut <br>
-        2. Kliknij miejsce środka donuta <br>
-        3. Uzupełnij atrybuty i kliknij OK <br>
-        4. Wszystkie założenia są tak jak przy zwykłym dodawaniu <br><br>
-        <p>Usuwanie</p>
-        1. Wybierz poligon na mapie <br>
-        2. Kliknij Usuń <br><br>
-        <p>Edycja</p>
-        1. Wybierz poligon na mapie <br>
-        2. Kliknij Edycja <br>
-        3. Wybierz tryb edycji (area do dodawania obszaru rysowaniem, vertex do edycji węzłów) <br>
-        3. Edytuj geometrię <br>
-        4. Kliknij zapisz <br>
-        5. Wszystkie założenia są tak jak przy zwykłym dodawaniu <br><br>
+        <div class="row">
+          <div class="panel panel-default">
+            <div class="panel-heading">Metoda dodawania</div>
+            <ul class="list-group">
+              <li class="list-group-item">
+                <input type="radio" id="add" value="add" v-model="addMode" :disabled="addButton">
+                <label for="add">Free-hand polygon</label>
+              </li>
+              <li class="list-group-item">
+                <input type="radio" id="donut" value="donut" v-model="addMode" :disabled="addButton">
+                <label for="donut">Buffer (donut)</label>
+              </li>
+              <!--<li class="list-group-item">
+                <input type="radio" id="buffer" value="buffer" v-model="addMode" :disabled="addButton">
+                <label for="buffer">Buffer (full)</label>
+              </li>-->
+            </ul>
+          </div>
+        </div>
+        <div class="row">
+          <div class="panel panel-default">
+            <div class="panel-heading">Metoda geometryczna</div>
+            <ul class="list-group">
+              <li class="list-group-item">
+                <input type="radio" id="trim" value="trim" v-model="editMode">
+                <label for="trim">Trim</label>
+              </li>
+              <li class="list-group-item">
+                <input type="radio" id="cut" value="cut" v-model="editMode">
+                <label for="cut">Cut</label>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="row">
+          <div class="panel panel-default">
+            <div class="panel-heading">Metoda edycji</div>
+            <ul class="list-group">
+              <li class="list-group-item">
+                <input type="radio" id="vertex" value="vertex" v-model="editTool" :disabled="!edit">
+                <label for="vertex">Vertex</label>
+              </li>
+              <li class="list-group-item">
+                <input type="radio" id="area" value="area" v-model="editTool" :disabled="!edit">
+                <label for="area">Area</label>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="row" v-if="geojsonRequest.length > 0">
+          <pre v-highlightjs="geojsonRequest"><code class="javascript"></code></pre>
+        </div>
       </div>
       <add-modal id="add-modal" v-if="addModal" v-on:close-modal="savePolygon" :data="currentFeature"></add-modal>
       <donut-modal id="donut-modal" v-if="donutModal" v-on:close-modal="saveDonut" :data="currentFeature"></donut-modal>

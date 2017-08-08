@@ -4,8 +4,11 @@ import ol from 'openlayers'
 import turf from 'turf'
 import turf_circle from 'turf-circle'
 import Vue from 'vue'
+import VueHighlightJS from 'vue-highlightjs'
 import './modals'
 import './style.css'
+
+Vue.use(VueHighlightJS)
 
 const vm = new Vue({
     el: '#app',
@@ -15,15 +18,19 @@ const vm = new Vue({
         addButton: true,
         removeButton: true,
         editButton: true,
-        donutButton: true,
         saveButton: true,
         cancelButton: true,
         layers: [],
         mapInteractions: [],
         currentFeature: {},
+        addMode: 'add',
         editMode: 'trim',
         editTool: 'vertex',
-        edit: false
+        edit: false,
+        request: {
+            type: 'FeatureCollection',
+            features: []
+        }
     },
     computed: {
         layersSource: function() {
@@ -43,11 +50,17 @@ const vm = new Vue({
                 else range = turf.union(range, f_obj)
             }
             return range
+        },
+        geojsonRequest: function() {
+            return JSON.stringify(this.request, null, 2)
         }
     },
     watch: {
         editTool: function() {
             this.changeInteraction('edit')
+        },
+        addMode: function() {
+            this.changeInteraction(this.addMode)
         }
     },
     methods: {
@@ -61,7 +74,7 @@ const vm = new Vue({
                     width: 1.25
                 }),
                 text: new ol.style.Text({
-                    text: f.get('name'),
+                    text: f.get('externalId'),
                     fill: new ol.style.Fill({
                         color: 'rgba(255,0,0,1)'
                     })
@@ -90,7 +103,6 @@ const vm = new Vue({
             switch(interaction) {
                 case 'select':
                     this.addButton = true
-                    this.donutButton = true
                     this.removeButton = false
                     this.editButton = false
                     this.saveButton = false
@@ -102,14 +114,12 @@ const vm = new Vue({
                     this.editButton = true
                     this.saveButton = false
                     this.addButton = false
-                    this.donutButton = false
                     this.cancelButton = false
                     this.edit = false
                     break
                 case 'add':
                 case 'donut':
                     this.addButton = false
-                    this.donutButton = false
                     this.saveButton = false
                     this.removeButton = false
                     this.editButton = false
@@ -121,7 +131,6 @@ const vm = new Vue({
                     this.cancelButton = true
                     this.edit = true
                     this.addButton = false
-                    this.donutButton = false
                     this.removeButton = false
                     this.editButton = false
                     break
@@ -264,10 +273,36 @@ const vm = new Vue({
             let base = JSON.parse((new ol.format.GeoJSON()).writeFeature(this.currentFeature.feature, {
                 featureProjection : 'EPSG:3857'
             }))
+            let range = turf.difference(this.rangeObj, base)
             let diff
-            if(this.rangeObj) {
-                let range = turf.difference(this.rangeObj, base)
-                diff = turf.buffer(turf.difference(turf.union(base, created_obj), range), 0)
+            if(range) {
+                if(this.editMode == 'trim') {
+                    diff = turf.buffer(turf.difference(turf.union(base, created_obj), range), 0)
+                } else if(this.editMode == 'cut') {
+                    this.request.features = []
+                    for(let lyr of this.layers) {
+                        let lyr_obj = JSON.parse((new ol.format.GeoJSON()).writeFeature(lyr.getSource().getFeatures()[0], {
+                            featureProjection : 'EPSG:3857'
+                        }))
+                        if(turf.intersect(created_obj, lyr_obj)) {
+                            let diff_obj = turf.difference(lyr_obj, created_obj)
+                            if(!diff_obj) {
+                                // Przypadek w którym stworzony poligon zawiera się w całości w istniejącym
+                                alert('Niepoprawna geometria')
+                                return
+                            }
+                            let diff_fixed = turf.buffer(diff_obj, 0)
+                            let diff_geom = (new ol.format.GeoJSON()).readFeature(diff_fixed, {
+                                featureProjection: 'EPSG:3857'
+                            }).getGeometry()
+                            lyr.getSource().getFeatures()[0].setGeometry(diff_geom)
+                            this.request.features.push(JSON.parse((new ol.format.GeoJSON()).writeFeature(lyr.getSource().getFeatures()[0], {
+                                featureProjection : 'EPSG:3857'
+                            })))
+                        }
+                    }
+                    diff = turf.union(base, created_obj)
+                }
             }else {
                 diff = turf.union(base, created_obj)
             }
@@ -275,6 +310,9 @@ const vm = new Vue({
                 featureProjection: 'EPSG:3857'
             })
             this.currentFeature.feature.setGeometry(union.getGeometry())
+            this.request.features = [JSON.parse((new ol.format.GeoJSON()).writeFeature(union, {
+                featureProjection : 'EPSG:3857'
+            }))]
         },
         openModal: function(modal, feature) {
             this.currentFeature = {
@@ -301,7 +339,7 @@ const vm = new Vue({
             })
             diff_feature.setProperties({
                 'id': data.id,
-                'name': data.name
+                'externalId': data.externalId
             })
             let source = new ol.source.Vector({
                 features: [diff_feature]
@@ -321,7 +359,7 @@ const vm = new Vue({
             let feature = data.feature
             feature.setProperties({
                 'id': data.id,
-                'name': data.name
+                'externalId': data.externalId
             })
             let source = new ol.source.Vector({
                 features: [feature]
@@ -351,9 +389,13 @@ const vm = new Vue({
                     }).getGeometry()
                     layer.getSource().getFeatures()[0].setGeometry(diff_geom)
                 }
+                this.request.features = [JSON.parse((new ol.format.GeoJSON()).writeFeature(layer.getSource().getFeatures()[0], {
+                    featureProjection : 'EPSG:3857'
+                }))]
                 this.map.addLayer(layer)
                 this.layers.push(layer)
             } else if(this.editMode == 'cut') {
+                this.request.features = []
                 for(let lyr of this.layers) {
                     let lyr_obj = JSON.parse((new ol.format.GeoJSON()).writeFeature(lyr.getSource().getFeatures()[0], {
                         featureProjection : 'EPSG:3857'
@@ -370,8 +412,14 @@ const vm = new Vue({
                             featureProjection: 'EPSG:3857'
                         }).getGeometry()
                         lyr.getSource().getFeatures()[0].setGeometry(diff_geom)
+                        this.request.features.push(JSON.parse((new ol.format.GeoJSON()).writeFeature(lyr.getSource().getFeatures()[0], {
+                            featureProjection : 'EPSG:3857'
+                        })))
                     }
                 }
+                this.request.features.push(JSON.parse((new ol.format.GeoJSON()).writeFeature(layer.getSource().getFeatures()[0], {
+                    featureProjection : 'EPSG:3857'
+                })))
                 this.map.addLayer(layer)
                 this.layers.push(layer)
             }

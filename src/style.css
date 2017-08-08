@@ -2,3 +2,19 @@
     height: 100vh;
     width: 100%;
 }
+.ci {
+	width: 30px;
+	height: 30px;
+	background: url(ci.png);
+	display: inline-block;
+	opacity: 1;
+}
+.ci-add {
+    background-position: 115px -10px;
+}
+.ci-edit {
+    background-position: 78px -10px;
+}
+.ci-delete {
+    background-position: 190px -10px;
+}
