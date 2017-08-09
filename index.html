@@ -34,10 +34,10 @@
                 <input type="radio" id="donut" value="donut" v-model="addMode" :disabled="addButton">
                 <label for="donut">Buffer (donut)</label>
               </li>
-              <!--<li class="list-group-item">
+              <li class="list-group-item">
                 <input type="radio" id="buffer" value="buffer" v-model="addMode" :disabled="addButton">
                 <label for="buffer">Buffer (full)</label>
-              </li>-->
+              </li>
             </ul>
           </div>
         </div>
@@ -77,6 +77,7 @@
       </div>
       <add-modal id="add-modal" v-if="addModal" v-on:close-modal="savePolygon" :data="currentFeature"></add-modal>
       <donut-modal id="donut-modal" v-if="donutModal" v-on:close-modal="saveDonut" :data="currentFeature"></donut-modal>
+      <buffer-modal id="buffer-modal" v-if="bufferModal" v-on:close-modal="saveBuffer" :data="currentFeature"></buffer-modal>
     </div>
     <script type="text/javascript" src="./dist/bundle.min.js"></script>
   </body>

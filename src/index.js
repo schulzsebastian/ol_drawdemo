@@ -7,6 +7,7 @@ import Vue from 'vue'
 import VueHighlightJS from 'vue-highlightjs'
 import './modals'
 import './style.css'
+import 'highlight.js/styles/default.css'
 
 Vue.use(VueHighlightJS)
 
@@ -15,6 +16,7 @@ const vm = new Vue({
     data: {
         addModal: false,
         donutModal: false,
+        bufferModal: false,
         addButton: true,
         removeButton: true,
         editButton: true,
@@ -23,7 +25,7 @@ const vm = new Vue({
         layers: [],
         mapInteractions: [],
         currentFeature: {},
-        addMode: 'add',
+        addMode: 'buffer',
         editMode: 'trim',
         editTool: 'vertex',
         edit: false,
@@ -81,6 +83,24 @@ const vm = new Vue({
                 })
             })
         },
+        circleStyle: function(f){
+            return new ol.style.Style({
+                fill: new ol.style.Fill({
+                    color: 'rgba(255,255,255,0.4)'
+                }),
+                stroke: new ol.style.Stroke({
+                    color: '#3399CC',
+                    width: 1.25
+                }),
+                text: new ol.style.Text({
+                    text: f.get('externalId'),
+                    fill: new ol.style.Fill({
+                        color: 'rgba(255,0,0,1)'
+                    }),
+                    textAlign: 'right',
+                })
+            })
+        },
         modifyStyle: function(f) {
             let fill = new ol.style.Fill({
                 color: 'rgba(255,255,255,0.4)'
@@ -119,6 +139,7 @@ const vm = new Vue({
                     break
                 case 'add':
                 case 'donut':
+                case 'buffer':
                     this.addButton = false
                     this.saveButton = false
                     this.removeButton = false
@@ -177,6 +198,20 @@ const vm = new Vue({
                     })
                     this.map.addInteraction(snap_donut)
                     this.mapInteractions.push(snap_donut)
+                    break
+                case 'buffer':
+                    let buffer = new ol.interaction.Draw({
+                        source: new ol.source.Vector(),
+                        type: 'Point'
+                    })
+                    buffer.on('drawend', e => this.openModal('buffer', e.feature))
+                    this.map.addInteraction(buffer)
+                    this.mapInteractions.push(buffer)
+                    let snap_buffer = new ol.interaction.Snap({
+                        source: this.layersSource
+                    })
+                    this.map.addInteraction(snap_buffer)
+                    this.mapInteractions.push(snap_buffer)
                     break
                 case 'edit':
                     if(this.editTool == 'vertex') {
@@ -250,6 +285,9 @@ const vm = new Vue({
             this.currentFeature = {}
             this.addLayer(layer)
             this.changeInteraction('select')
+            this.request.features = [JSON.parse((new ol.format.GeoJSON()).writeFeature(layer, {
+                featureProjection : 'EPSG:3857'
+            }))]
         },
         selectFeature: function(selected) {
             if(selected) {
@@ -322,8 +360,10 @@ const vm = new Vue({
             }
             if(modal == 'add') this.addModal = true
             if(modal == 'donut') this.donutModal = true
+            if(modal == 'buffer') this.bufferModal = true
         },
         saveDonut: function(data) {
+            this.donutModal = false
             this.currentFeature = {}
             this.changeInteraction('select')
             if(data == null) return
@@ -351,6 +391,43 @@ const vm = new Vue({
             layer.set('id', data.id)
             this.addLayer(layer)
         },
+        saveBuffer: function(data) {
+            this.bufferModal = false
+            this.currentFeature = {}
+            this.changeInteraction('select')
+            if(data == null) return
+            let center = JSON.parse((new ol.format.GeoJSON()).writeFeature(data.feature, {
+                featureProjection : 'EPSG:3857'
+            }))
+            let circles = []
+            for(let range of data.ranges) {
+                // desc
+                circles.push(turf_circle(center, range, 64, 'kilometres'))
+            }
+            for(let i = 0; i<circles.length - 1; i++) {
+                circles[i] = turf.buffer(turf.difference(circles[i], circles[i+1]), 0)
+            }
+            for(let circle of circles) {
+                let feature = (new ol.format.GeoJSON()).readFeature(circle, {
+                    featureProjection: 'EPSG:3857'
+                })
+                feature.setProperties({
+                    'id': data.id.toString(),
+                    'externalId': data.externalId.toString()
+                })
+                let source = new ol.source.Vector({
+                    features: [feature]
+                })
+                let layer = new ol.layer.Vector({
+                    source: source,
+                    style: this.circleStyle
+                }) 
+                layer.set('id', data.id)
+                data.id += 1
+                data.externalId += 1
+                this.addLayer(layer)
+            }
+        },
         savePolygon: function(data) {
             this.addModal = false
             this.currentFeature = {}
@@ -376,6 +453,7 @@ const vm = new Vue({
                 featureProjection : 'EPSG:3857'
             }))
             if(this.editMode == 'trim') {
+                // intersect TypeError: this.seg.p1.equals2D is not a function
                 if(this.rangeObj && turf.intersect(created_obj, this.rangeObj)) {
                     let diff_obj = turf.difference(created_obj, this.rangeObj)
                     if(!diff_obj) {
