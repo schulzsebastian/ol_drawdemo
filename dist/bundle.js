@@ -20118,7 +20118,14 @@ var vm = new _vue2.default({
                 zoom: 14
             })
         });
-        this.changeInteraction('select');
+        var feature = {
+            feature: new _openlayers2.default.format.GeoJSON().readFeature(_data.polygon, {
+                featureProjection: 'EPSG:3857'
+            }),
+            id: "1",
+            externalId: "effe71"
+        };
+        this.savePolygon(feature);
     }
 });
 window.vm = vm;
@@ -20134,17 +20141,15 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 var polygon = exports.polygon = {
-  "type": "FeatureCollection",
-  "features": [{
-    "type": "Feature",
-    "properties": {
-      "label": "Obszar 1"
-    },
-    "geometry": {
-      "type": "Polygon",
-      "coordinates": [[[16.894032955169678, 52.390399169264306], [16.885879039764404, 52.39325381821551], [16.888840198516846, 52.39972192665831], [16.902873516082764, 52.39801988477258], [16.894032955169678, 52.390399169264306]]]
-    }
-  }]
+  "type": "Feature",
+  "properties": {
+    "id": "1",
+    "externalId": "effe71"
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [[[16.894032955169678, 52.390399169264306], [16.885879039764404, 52.39325381821551], [16.888840198516846, 52.39972192665831], [16.902873516082764, 52.39801988477258], [16.894032955169678, 52.390399169264306]]]
+  }
 };
 
 /***/ }),

@@ -1,5 +1,5 @@
 // Hardcoded data, css and modules
-import {polygon as default_range} from './data'
+import {polygon} from './data'
 import ol from 'openlayers'
 import turf from 'turf'
 import turf_circle from 'turf-circle'
@@ -438,7 +438,14 @@ const vm = new Vue({
                 zoom: 14
             })
         })
-        this.changeInteraction('select')
+        let feature = {
+            feature: (new ol.format.GeoJSON()).readFeature(polygon, {
+                featureProjection: 'EPSG:3857'
+            }),
+            id: "1",
+            externalId: "effe71"
+        }
+        this.savePolygon(feature)
     }
 })
 window.vm = vm
